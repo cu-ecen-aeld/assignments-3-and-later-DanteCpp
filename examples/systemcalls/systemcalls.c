@@ -9,15 +9,15 @@
 */
 bool do_system(const char *cmd)
 {
+    if (cmd == NULL) {
+        return false;
+    }
 
-/*
- * TODO  add your code here
- *  Call the system() function with the command set in the cmd
- *   and return a boolean true if the system() call completed with success
- *   or false() if it returned a failure
-*/
+    int ret = system(cmd);
 
-    return true;
+    // system() returns -1 if it fails to execute
+    // otherwise, we check if the command itself exited with 0 (success)
+    return (ret != -1 && WIFEXITED(ret) && WEXITSTATUS(ret) == 0);
 }
 
 /**
@@ -36,32 +36,46 @@ bool do_system(const char *cmd)
 
 bool do_exec(int count, ...)
 {
+    if (count < 1) {
+        return false;
+    }
+
     va_list args;
     va_start(args, count);
-    char * command[count+1];
-    int i;
-    for(i=0; i<count; i++)
-    {
+
+    // Create argument array for execv
+    char *command[count + 1];
+    for (int i = 0; i < count; i++) {
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
-
-/*
- * TODO:
- *   Execute a system command by calling fork, execv(),
- *   and wait instead of system (see LSP page 161).
- *   Use the command[0] as the full path to the command to execute
- *   (first argument to execv), and use the remaining arguments
- *   as second argument to the execv() command.
- *
-*/
 
     va_end(args);
 
-    return true;
+    pid_t pid = fork();
+    if (pid == -1) {
+        // Fork failed
+        return false;
+    } else if (pid == 0) {
+        // Child process
+        execv(command[0], command);
+        // If execv returns, there was an error
+        perror("execv failed");
+        exit(EXIT_FAILURE); // terminate child with failure
+    } else {
+        // Parent process: wait for child
+        int status;
+        if (waitpid(pid, &status, 0) == -1) {
+            return false;
+        }
+
+        // Check if child exited normally and with exit code 0
+        if ((status & 0x7F) == 0 && ((status >> 8) & 0xFF) == 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 }
 
 /**
@@ -71,29 +85,61 @@ bool do_exec(int count, ...)
 */
 bool do_exec_redirect(const char *outputfile, int count, ...)
 {
+    if (count < 1 || outputfile == NULL) {
+        return false;
+    }
+
     va_list args;
     va_start(args, count);
-    char * command[count+1];
-    int i;
-    for(i=0; i<count; i++)
-    {
+
+    char *command[count + 1];
+    for (int i = 0; i < count; i++) {
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
-
-
-/*
- * TODO
- *   Call execv, but first using https://stackoverflow.com/a/13784315/1446624 as a refernce,
- *   redirect standard out to a file specified by outputfile.
- *   The rest of the behaviour is same as do_exec()
- *
-*/
 
     va_end(args);
 
-    return true;
+    pid_t pid = fork();
+    if (pid == -1) {
+        // fork failed
+        return false;
+    }
+
+    if (pid == 0) {
+        // Child process
+
+        // Open output file for writing (create if it doesn't exist, truncate if it does)
+        int fd = open(outputfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+
+        // Redirect stdout (file descriptor 1) to the file
+        if (dup2(fd, STDOUT_FILENO) < 0) {
+            perror("dup2");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+
+        // Optional: redirect stderr too if you want
+        // dup2(fd, STDERR_FILENO);
+
+        close(fd); // original fd no longer needed
+
+        execv(command[0], command);
+
+        // If execv returns, an error occurred
+        perror("execv");
+        exit(EXIT_FAILURE);
+    } else {
+        // Parent process
+        int status;
+        if (waitpid(pid, &status, 0) == -1) {
+            return false;
+        }
+
+        return ((status & 0x7F) == 0) && (((status >> 8) & 0xFF) == 0);
+    }
 }
