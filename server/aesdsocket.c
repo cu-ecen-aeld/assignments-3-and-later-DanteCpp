@@ -1,7 +1,9 @@
+#define _GNU_SOURCE
+
+#include <signal.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,6 +54,12 @@ int main(int argc, char **argv)
     struct sockaddr_in addr = {.sin_family = AF_INET,
                                .sin_addr.s_addr = htonl(INADDR_ANY),
                                .sin_port = htons(PORT)};
+                               
+    int opt = 1;
+    if (setsockopt(lsock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        syslog(LOG_ERR, "setsockopt SO_REUSEADDR failed: %m");
+        exit(EXIT_FAILURE);
+    }
     if (bind(lsock, (struct sockaddr *)&addr, sizeof(addr)) < 0 || 
         listen(lsock, BACKLOG) < 0) 
     {   
