@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <sys/types.h> 
 
 #define PORT      9000
 #define FILEPATH  "/var/tmp/aesdsocketdata"
