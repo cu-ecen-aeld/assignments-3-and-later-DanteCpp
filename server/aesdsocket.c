@@ -118,9 +118,9 @@ int main(int argc, char *argv[]) {
 
     openlog("aesdsocket", LOG_PID, LOG_USER);
 
-    if (argc > 1 && strcmp(argv[1], "-d") == 0) {
-        daemon_mode = 1;
-    }
+    // if (argc > 1 && strcmp(argv[1], "-d") == 0) {
+    //     daemon_mode = 1;
+    // }
 
     // Set up signal handling
     memset(&sa, 0, sizeof(sa));
